@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#11101b">
+  <meta name="description" content="Leitor de mangá com OCR e tradução assistida.">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <title>MangaLê — Tradutor de mangás</title>
+  <style>
+    :root{color-scheme:dark;--bg:#0d0c14;--panel:#171624;--panel2:#201e30;--line:#343149;--text:#f5f2ff;--muted:#aaa6bd;--purple:#9b7bff;--cyan:#61e4dc;--danger:#ff7185}
+    *{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at top,#211b3a 0,#0d0c14 55%);color:var(--text);font:15px/1.45 system-ui,-apple-system,Segoe UI,sans-serif}
+    button,input,select{font:inherit}button{border:0;border-radius:12px;padding:11px 15px;background:var(--purple);color:#130f20;font-weight:700;cursor:pointer}button.secondary{background:var(--panel2);color:var(--text);border:1px solid var(--line)}button:disabled{opacity:.45;cursor:not-allowed}
+    header{padding:22px max(18px,calc((100% - 1100px)/2));display:flex;align-items:center;justify-content:space-between;gap:16px;border-bottom:1px solid #ffffff12}
+    .brand{display:flex;align-items:center;gap:12px}.brand img{width:42px;height:42px}.brand h1{font-size:20px;margin:0}.brand p{margin:2px 0 0;color:var(--muted);font-size:12px}
+    main{max-width:1100px;margin:auto;padding:22px 16px 60px;display:grid;gap:18px}
+    .panel{background:#171624ed;border:1px solid var(--line);border-radius:18px;padding:17px;box-shadow:0 12px 40px #0003}
+    .toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px}.toolbar label{color:var(--muted);font-size:13px}.toolbar select,.toolbar input[type=text]{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px}
+    .upload{border:1px dashed #665b8b;border-radius:14px;padding:18px;text-align:center;background:#211d34}.upload input{max-width:100%;margin-top:10px}
+    .layout{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(280px,.8fr);gap:18px;align-items:start}
+    .reader{min-width:0}.page-wrap{position:relative;display:inline-block;max-width:100%;line-height:0;background:#09090d;border-radius:12px;overflow:hidden}.page-wrap img{display:block;max-width:100%;max-height:72vh;object-fit:contain}.overlay{position:absolute;inset:0;pointer-events:none}.translation{position:absolute;display:flex;align-items:center;justify-content:center;text-align:center;overflow:hidden;line-height:1.12;padding:2px 4px;border-radius:5px;background:#f8f4e9ed;color:#18131c;font-weight:700;font-size:clamp(9px,1.4vw,17px);text-shadow:none;border:1px solid #342b3a;overflow-wrap:anywhere}
+    .page-meta{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px;color:var(--muted);font-size:13px}
+    h2{font-size:16px;margin:0 0 12px}.muted{color:var(--muted)}.stack{display:grid;gap:12px}.status{font-size:13px;color:var(--cyan);min-height:20px}.progress{height:6px;background:#302d42;border-radius:9px;overflow:hidden}.progress span{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--purple),var(--cyan));transition:width .2s}
+    .segment{border-top:1px solid var(--line);padding-top:12px;display:grid;gap:7px}.segment textarea{width:100%;min-height:64px;resize:vertical;background:#100f19;border:1px solid var(--line);border-radius:10px;color:var(--text);padding:10px}.segment .translated{min-height:58px}
+    .library-list{display:grid;gap:8px}.book{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px;border:1px solid var(--line);border-radius:12px}.book small{display:block;color:var(--muted)}.book-actions{display:flex;gap:6px}.book-actions button{padding:8px 10px;font-size:12px}
+    .switch{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:13px}.switch input{accent-color:var(--purple)}
+    footer{text-align:center;color:var(--muted);font-size:12px;padding:5px 16px 25px}
+    @media(max-width:760px){.layout{grid-template-columns:1fr}header{padding:15px 16px}.page-wrap img{max-height:62vh}.panel{padding:14px}.toolbar>*{flex:1}.toolbar button{flex:initial}}
+  </style>
+</head>
+<body>
+<header>
+  <div class="brand"><img src="icon.svg" alt=""><div><h1>MangaLê</h1><p>Leia mangás com ajuda da tradução</p></div></div>
+  <button class="secondary" id="installBtn" hidden>Instalar app</button>
+</header>
+<main>
+  <section class="panel stack">
+    <div class="toolbar">
+      <label>Idioma do original
+        <select id="sourceLang"><option value="jpn">Japonês</option><option value="eng">Inglês</option><option value="kor">Coreano</option><option value="chi_sim">Chinês simplificado</option></select>
+      </label>
+      <label>Traduzir para
+        <select id="targetLang"><option value="pt">Português</option><option value="en">Inglês</option><option value="es">Espanhol</option><option value="fr">Francês</option></select>
+      </label>
+      <label class="switch"><input type="checkbox" id="overlayToggle" checked> Mostrar tradução na página</label>
+      <button id="ocrBtn" disabled>Reconhecer e traduzir</button>
+      <button class="secondary" id="saveBtn" disabled>Salvar mangá</button>
+    </div>
+    <div class="upload">
+      <strong>Importe as páginas do seu mangá</strong><br>
+      <span class="muted">Selecione uma ou várias imagens JPG, PNG ou WEBP.</span><br>
+      <input id="files" type="file" accept="image/jpeg,image/png,image/webp" multiple>
+    </div>
+    <div class="status" id="status">Escolha as páginas para começar.</div>
+    <div class="progress"><span id="progressBar"></span></div>
+  </section>
+
+  <section class="layout">
+    <section class="panel reader">
+      <h2>Leitor</h2>
+      <div id="pageStage" class="page-wrap"><div style="padding:70px 25px;color:#aaa6bd;line-height:1.4;text-align:center">Suas páginas aparecerão aqui.</div></div>
+      <div class="page-meta">
+        <span id="pageCount">Nenhuma página carregada</span>
+        <div class="toolbar"><button class="secondary" id="prevBtn" disabled>← Anterior</button><button class="secondary" id="nextBtn" disabled>Próxima →</button></div>
+      </div>
+    </section>
+    <aside class="panel stack">
+      <div><h2>Texto reconhecido e tradução</h2><p class="muted" style="margin:0;font-size:12px">Você pode corrigir o OCR e editar a tradução. As alterações aparecem na sobreposição.</p></div>
+      <div id="segments"><p class="muted">Depois de reconhecer uma página, os trechos aparecerão aqui.</p></div>
+    </aside>
+  </section>
+
+  <section class="panel">
+    <h2>Minha biblioteca</h2>
+    <div id="library" class="library-list"><p class="muted">Os mangás salvos neste aparelho aparecerão aqui.</p></div>
+  </section>
+  <section class="panel">
+    <h2>Observações</h2>
+    <p class="muted" style="margin:0;font-size:13px">O reconhecimento e a tradução precisam de internet na primeira utilização e podem depender dos limites dos serviços gratuitos. A tradução é aproximada e pode errar em textos verticais, efeitos sonoros e fontes estilizadas. A sobreposição cobre visualmente parte do original, mas não remove as letras de forma inteligente. Seus arquivos salvos ficam neste navegador/aparelho.</p>
+  </section>
+</main>
+<footer>MangaLê • Projeto gratuito e experimental</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const dbName = 'mangale-db-v2';
+  let db, pages = [], currentPage = 0, currentName = 'Meu mangá', deferredInstall = null, worker = null;
+  const status = msg => $('status').textContent = msg;
+  const progress = n => $('progressBar').style.width = `${Math.max(0,Math.min(100,n))}%`;
+
+  function openDB() {
+    return new Promise((resolve,reject) => {
+      const req = indexedDB.open(dbName,1);
+      req.onupgradeneeded = () => req.result.createObjectStore('books',{keyPath:'id'});
+      req.onsuccess = () => { db=req.result; resolve(db); };
+      req.onerror = () => reject(req.error);
+    });
+  }
+  function tx(mode='readonly') { return db.transaction('books',mode).objectStore('books'); }
+  const request = req => new Promise((res,rej)=>{req.onsuccess=()=>res(req.result);req.onerror=()=>rej(req.error)});
+  function makeId(){return (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);}
+
+  function renderPage() {
+    const stage=$('pageStage'), page=pages[currentPage];
+    if(!page){stage.innerHTML='<div style="padding:70px 25px;color:#aaa6bd;line-height:1.4;text-align:center">Suas páginas aparecerão aqui.</div>';return;}
+    stage.innerHTML='';
+    const img=document.createElement('img'); img.src=page.url; img.alt=`Página ${currentPage+1}`;
+    const overlay=document.createElement('div'); overlay.className='overlay'; overlay.hidden=!$('overlayToggle').checked;
+    stage.append(img,overlay);
+    img.onload=()=>drawOverlay(page,img,overlay);
+    $('pageCount').textContent=`Página ${currentPage+1} de ${pages.length}`;
+    $('prevBtn').disabled=currentPage===0; $('nextBtn').disabled=currentPage>=pages.length-1;
+    renderSegments();
+  }
+  function drawOverlay(page,img,overlay) {
+    overlay.innerHTML='';
+    if(!$('overlayToggle').checked) return;
+    const sx=img.clientWidth/(page.width||img.naturalWidth), sy=img.clientHeight/(page.height||img.naturalHeight);
+    (page.segments||[]).forEach((s,i)=>{
+      if(!s.translation) return;
+      const b=s.bbox||{x0:0,y0:0,x1:100,y1:30};
+      const el=document.createElement('div'); el.className='translation'; el.textContent=s.translation;
+      el.style.left=`${b.x0*sx}px`; el.style.top=`${b.y0*sy}px`;
+      el.style.width=`${Math.max(24,(b.x1-b.x0)*sx)}px`; el.style.height=`${Math.max(18,(b.y1-b.y0)*sy)}px`;
+      overlay.appendChild(el);
+    });
+  }
+  function renderSegments(){
+    const root=$('segments'), page=pages[currentPage]; root.innerHTML='';
+    if(!page || !page.segments?.length){root.innerHTML='<p class="muted">Nenhum texto reconhecido nesta página ainda.</p>';return;}
+    page.segments.forEach((s,i)=>{
+      const wrap=document.createElement('div');wrap.className='segment';
+      const label=document.createElement('label');label.className='muted';label.textContent=`Trecho ${i+1}`;
+      const original=document.createElement('textarea');original.value=s.text||'';original.setAttribute('aria-label','Texto original');
+      const translated=document.createElement('textarea');translated.className='translated';translated.value=s.translation||'';translated.placeholder='Tradução';translated.setAttribute('aria-label','Tradução');
+      original.addEventListener('change',()=>{s.text=original.value;});
+      translated.addEventListener('input',()=>{s.translation=translated.value;const overlay=$('pageStage').querySelector('.overlay');if(overlay){const img=$('pageStage').querySelector('img');drawOverlay(page,img,overlay);}});
+      wrap.append(label,original,translated);root.appendChild(wrap);
+    });
+  }
+  function updateNav(){ $('ocrBtn').disabled=!pages.length; $('saveBtn').disabled=!pages.length; $('prevBtn').disabled=!pages.length||currentPage===0; $('nextBtn').disabled=!pages.length||currentPage===pages.length-1; }
+  $('files').addEventListener('change', async e=>{
+    const files=[...e.target.files].filter(f=>/^image\/(jpeg|png|webp)$/.test(f.type));
+    if(!files.length)return;
+    pages.forEach(p=>URL.revokeObjectURL(p.url));
+    pages=[];
+    for(const f of files){const url=URL.createObjectURL(f);const img=new Image();img.src=url;await new Promise(r=>img.onload=r);pages.push({name:f.name,blob:f,width:img.naturalWidth,height:img.naturalHeight,segments:[],url});}
+    currentPage=0;currentName=files[0].name.replace(/\.[^.]+$/,'')||'Meu mangá';renderPage();updateNav();status(`${pages.length} página(s) carregada(s).`);progress(0);
+  });
+  $('prevBtn').onclick=()=>{if(currentPage>0){currentPage--;renderPage();}};
+  $('nextBtn').onclick=()=>{if(currentPage<pages.length-1){currentPage++;renderPage();}};
+  $('overlayToggle').onchange=()=>renderPage();
+
+  async function getWorker(){
+    if(worker)return worker;
+    if(!window.Tesseract)throw new Error('Não foi possível carregar o mecanismo de OCR. Verifique a conexão.');
+    worker=await Tesseract.createWorker($('sourceLang').value,1,{logger:m=>{if(m.status==='recognizing text')progress(m.progress*100);}});
+    return worker;
+  }
+  async function translate(text){
+    if(!text.trim())return '';
+    const from=$('sourceLang').value==='jpn'?'ja':$('sourceLang').value==='eng'?'en':$('sourceLang').value==='kor'?'ko':'zh-CN';
+    const to=$('targetLang').value;
+    const url='https://api.mymemory.translated.net/get?q='+encodeURIComponent(text.slice(0,450))+'&langpair='+encodeURIComponent(from+'|'+to);
+    const response=await fetch(url);if(!response.ok)throw new Error('O serviço de tradução não respondeu.');
+    const data=await response.json();
+    if(data.responseStatus && data.responseStatus!==200)throw new Error(data.responseDetails||'Limite do serviço de tradução atingido.');
+    return data.responseData?.translatedText||'';
+  }
+  $('ocrBtn').onclick=async()=>{
+    if(!pages.length)return;
+    $('ocrBtn').disabled=true;
+    try{
+      const w=await getWorker();
+      for(let p=0;p<pages.length;p++){
+        const page=pages[p];currentPage=p;renderPage();status(`Reconhecendo página ${p+1} de ${pages.length}…`);
+        const result=await w.recognize(page.blob);
+        const lines=(result.data.lines||[]).filter(l=>l.text?.trim());
+        page.segments=[];
+        for(let i=0;i<lines.length;i++){
+          const line=lines[i];
+          page.segments.push({text:line.text,translation:'',bbox:line.bbox});
+          try{page.segments[i].translation=await translate(line.text);}
+          catch(err){page.segments[i].translation='[Falha na tradução]';}
+          progress(((p+(i+1)/Math.max(1,lines.length))/pages.length)*100);
+        }
+        renderPage();await saveCurrent(false);
+      }
+      currentPage=0;renderPage();status('Concluído! Revise o texto e ajuste as traduções se necessário.');progress(100);
+    }catch(err){status(err.message||'Ocorreu um erro durante o reconhecimento.');}
+    finally{$('ocrBtn').disabled=false;updateNav();}
+  };
+
+  async function saveCurrent(notify=true){
+    if(!pages.length)return;
+    const storedPages=pages.map(p=>({name:p.name,blob:p.blob,width:p.width,height:p.height,segments:p.segments||[]}));
+    const book={id:window.activeBookId||makeId(),name:currentName,updatedAt:Date.now(),currentPage,pages:storedPages};
+    window.activeBookId=book.id;
+    await request(tx('readwrite').put(book));
+    if(notify)status('Mangá salvo nesta biblioteca.');
+    await renderLibrary();
+  }
+  $('saveBtn').onclick=()=>saveCurrent(true).catch(()=>status('Não foi possível salvar neste navegador.'));
+  async function renderLibrary(){
+    const books=await request(tx().getAll()),root=$('library');root.innerHTML='';
+    if(!books.length){root.innerHTML='<p class="muted">Os mangás salvos neste aparelho aparecerão aqui.</p>';return;}
+    books.sort((a,b)=>b.updatedAt-a.updatedAt).forEach(book=>{
+      const row=document.createElement('div');row.className='book';
+      const info=document.createElement('div');info.innerHTML=`<strong></strong><small></small>`;info.querySelector('strong').textContent=book.name;info.querySelector('small').textContent=`${book.pages.length} página(s)`;
+      const actions=document.createElement('div');actions.className='book-actions';
+      const open=document.createElement('button');open.textContent='Abrir';open.onclick=()=>loadBook(book.id);
+      const del=document.createElement('button');del.textContent='Excluir';del.className='secondary';del.onclick=async()=>{if(confirm(`Excluir "${book.name}" desta biblioteca?`)){await request(tx('readwrite').delete(book.id));await renderLibrary();}};
+      actions.append(open,del);row.append(info,actions);root.appendChild(row);
+    });
+  }
+  async function loadBook(id){
+    const book=await request(tx().get(id));if(!book)return;
+    pages.forEach(p=>p.url&&URL.revokeObjectURL(p.url));
+    currentName=book.name;window.activeBookId=book.id;currentPage=Math.min(book.currentPage||0,book.pages.length-1);
+    pages=book.pages.map(p=>({...p,url:URL.createObjectURL(p.blob)}));
+    renderPage();updateNav();status(`"${book.name}" aberto.`);
+  }
+  $('installBtn').onclick=async()=>{if(!deferredInstall)return;deferredInstall.prompt();await deferredInstall.userChoice;deferredInstall=null;$('installBtn').hidden=true;};
+  window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredInstall=e;$('installBtn').hidden=false;});
+  window.addEventListener('resize',()=>{const page=pages[currentPage],stage=$('pageStage');if(page){const img=stage.querySelector('img'),overlay=stage.querySelector('.overlay');if(img&&overlay)drawOverlay(page,img,overlay);}});
+  (async()=>{try{await openDB();await renderLibrary();}catch(e){status('Seu navegador não permitiu abrir a biblioteca local.');}
+    if('serviceWorker' in navigator && location.protocol!=='file:'){navigator.serviceWorker.register('./sw.js').catch(()=>{});}
+  })();
+})();
+</script>
+</body>
+</html>
