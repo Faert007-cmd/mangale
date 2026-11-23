@@ -1,0 +1,2 @@
+# mangale
+Tradução de Mangas
